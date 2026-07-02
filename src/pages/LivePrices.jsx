@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { Search, ChevronLeft, ChevronRight, RefreshCw } from "lucide-react";
+import { fetchCoinGeckoMarkets } from "@/utils/api";
 import ExportCsvButton from "@/components/ExportCsvButton";
 
 export default function LivePrices() {
@@ -21,18 +22,15 @@ export default function LivePrices() {
       setError(null);
       
       // CoinGecko API - CORS enabled, no key required
-      const response = await fetch(
-        "https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&order=market_cap_desc&per_page=100&page=1&sparkline=false&price_change_percentage=24h"
-      );
-      
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}`);
-      }
-      
-      const data = await response.json();
+      const data = await fetchCoinGeckoMarkets({
+        perPage: 100,
+        page: 1,
+        sparkline: false,
+        priceChangePercentage: "24h",
+      });
 
       // Map CoinGecko response to our format
-      const pricesData = (Array.isArray(data) ? data : []).map((coin, index) => ({
+      const pricesData = data.map((coin, index) => ({
         rank: index + 1,
         image: coin.image,
         symbol: (coin.symbol || "").toUpperCase(),

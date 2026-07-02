@@ -41,7 +41,7 @@ export default function Hacks() {
     return hacks.filter((h) =>
       h.protocol?.toLowerCase().includes(searchLower) ||
       h.type?.toLowerCase().includes(searchLower) ||
-      h.chain?.toLowerCase().includes(searchLower)
+      (Array.isArray(h.chain) ? h.chain.join(", ") : h.chain || "").toLowerCase().includes(searchLower)
     );
   }, [hacks, search]);
 
@@ -139,8 +139,8 @@ export default function Hacks() {
                     <td className="py-4 px-4 text-[#6b7280] text-xs max-w-[180px] truncate" title={hack.technique || hack.type || "N/A"}>
                       {hack.technique || hack.type || "N/A"}
                     </td>
-                    <td className="py-4 px-4 text-[#6b7280] text-xs max-w-[150px] truncate" title={Array.isArray(hack.chains) ? hack.chains.join(", ") : (hack.chain || "N/A")}>
-                      {Array.isArray(hack.chains) ? hack.chains.slice(0, 2).join(", ") + (hack.chains.length > 2 ? ` +${hack.chains.length - 2}` : "") : (hack.chain || "N/A")}
+                    <td className="py-4 px-4 text-[#6b7280] text-xs max-w-[150px] truncate" title={Array.isArray(hack.chain) ? hack.chain.join(", ") : (hack.chain || "N/A")}>
+                      {Array.isArray(hack.chain) ? hack.chain.slice(0, 2).join(", ") + (hack.chain.length > 2 ? ` +${hack.chain.length - 2}` : "") : (hack.chain || "N/A")}
                     </td>
                   </tr>
                 );

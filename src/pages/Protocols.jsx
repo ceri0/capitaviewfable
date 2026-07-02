@@ -86,14 +86,12 @@ export default function Protocols() {
                 <th className="py-3 px-4 font-semibold text-right cursor-pointer hover:text-[#a97bd1] transition-colors" onClick={() => handleSort("tvl")}>TVL</th>
                 <th className="py-3 px-4 font-semibold text-right cursor-pointer hover:text-[#a97bd1] transition-colors" onClick={() => handleSort("change_1d")}>24h %</th>
                 <th className="py-3 px-4 font-semibold text-right cursor-pointer hover:text-[#a97bd1] transition-colors" onClick={() => handleSort("change_7d")}>7d %</th>
-                <th className="py-3 px-4 font-semibold text-right cursor-pointer hover:text-[#a97bd1] transition-colors" onClick={() => handleSort("change_30d")}>1m %</th>
               </tr>
             </thead>
             <tbody>
               {paginatedProtocols.map((protocol, index) => {
                 const change1d = protocol.change_1d ?? 0;
                 const change7d = protocol.change_7d ?? 0;
-                const change30d = protocol.change_30d ?? 0;
                 const globalIndex = (currentPage - 1) * rowsPerPage + index + 1;
                 return (
                   <tr key={protocol.id} className="border-b border-[#2d2d3d] last:border-b-0 hover:bg-[#2d2d3d]/30 transition-colors">
@@ -106,9 +104,6 @@ export default function Protocols() {
                     </td>
                     <td className={`py-4 px-4 text-right font-medium ${change7d >= 0 ? "text-[#34d399]" : "text-red-400"}`}>
                       {formatPercent(change7d)}
-                    </td>
-                    <td className={`py-4 px-4 text-right font-medium ${change30d !== 0 && change30d !== null ? (change30d >= 0 ? "text-[#34d399]" : "text-red-400") : "text-[#6b7280]"}`}>
-                      {change30d !== 0 && change30d !== null ? formatPercent(change30d) : "—"}
                     </td>
                   </tr>
                 );

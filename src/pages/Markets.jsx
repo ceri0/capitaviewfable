@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { Search, ChevronLeft, ChevronRight, TrendingUp, TrendingDown } from "lucide-react";
-import { LineChart, Line, ResponsiveContainer, XAxis, YAxis, Tooltip } from "recharts";
+import { LineChart, Line, ResponsiveContainer } from "recharts";
+import { fetchCoinGeckoMarkets } from "@/utils/api";
 import ExportCsvButton from "@/components/ExportCsvButton";
 
 export default function Markets() {
@@ -18,22 +19,16 @@ export default function Markets() {
       try {
         setLoading(true);
         setRetryCountdown(null);
-        // Fetch 2 pages (200 coins) to reduce rate limit issues
-        const [page1Res, page2Res] = await Promise.all([
-          fetch("https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&order=market_cap_desc&per_page=100&page=1&sparkline=true"),
-          fetch("https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&order=market_cap_desc&per_page=100&page=2&sparkline=true"),
+        // Fetch 2 pages (200 coins) to reduce rate limit issues;
+        // a failed page is skipped so the other can still render
+        const [page1, page2] = await Promise.all([
+          fetchCoinGeckoMarkets({ perPage: 100, page: 1, sparkline: true }).catch(() => []),
+          fetchCoinGeckoMarkets({ perPage: 100, page: 2, sparkline: true }).catch(() => []),
         ]);
-        
-        let allCoins = [];
-        if (page1Res.ok) {
-          const page1 = await page1Res.json();
-          allCoins = [...allCoins, ...(Array.isArray(page1) ? page1 : [])];
-        }
-        if (page2Res.ok) {
-          const page2 = await page2Res.json();
-          allCoins = [...allCoins, ...(Array.isArray(page2) ? page2 : [])];
-        }
-        
+
+        const allCoins = [...page1, ...page2];
+
+
         if (allCoins.length === 0) {
           throw new Error("No data received");
         }

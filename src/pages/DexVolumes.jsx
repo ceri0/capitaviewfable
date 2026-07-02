@@ -26,7 +26,7 @@ export default function DexVolumes() {
 
   const sortedProtocols = useMemo(() => {
     if (!data?.total24h) return [];
-    const allProtocols = data.allPools || data.protocols || [];
+    const allProtocols = data.protocols || [];
     const sorted = [...allProtocols].sort((a, b) => {
       const aVal = a[sortConfig.key] || 0;
       const bVal = b[sortConfig.key] || 0;

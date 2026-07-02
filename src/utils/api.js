@@ -27,6 +27,26 @@ export async function fetchCoinGeckoPrices(ids) {
   }, {});
 }
 
+// Full markets listing from CoinGecko's /coins/markets endpoint — the same
+// canonical source as fetchCoinGeckoPrices, but returns the raw coin objects
+// with ALL fields (market_cap, total_volume, sparkline_in_7d, market_cap_rank,
+// etc.) for a page of top coins by market cap, rather than a curated id list.
+// Used by LivePrices and Markets so the endpoint/URL lives in one place.
+// Throws on HTTP/network errors (callers should catch and handle).
+export async function fetchCoinGeckoMarkets({
+  perPage = 100,
+  page = 1,
+  sparkline = false,
+  priceChangePercentage,
+} = {}) {
+  let url = `https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&order=market_cap_desc&per_page=${perPage}&page=${page}&sparkline=${sparkline}`;
+  if (priceChangePercentage) {
+    url += `&price_change_percentage=${priceChangePercentage}`;
+  }
+  const data = await fetchJSON(url);
+  return Array.isArray(data) ? data : [];
+}
+
 export function formatNumber(num) {
   if (num === null || num === undefined) return "N/A";
   if (num >= 1e12) return `$${(num / 1e12).toFixed(2)}T`;
