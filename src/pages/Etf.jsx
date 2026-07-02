@@ -17,15 +17,15 @@ import ExportCsvButton from "@/components/ExportCsvButton";
 //   sponsor_fee, net_inflow, cum_inflow, net_assets, mkt_price, value_traded,
 //   volume (string) }. NOTE: the documented prem_dsc field was absent in live
 //   responses, so it is not relied upon here.
-const API_BASE = "https://openapi.sosovalue.com/openapi/v1";
-const API_KEY = import.meta.env.VITE_SOSOVALUE_API_KEY;
+// Requests go through our Vercel serverless proxy (api/soso/[...path].js) so
+// the SoSoValue API key stays server-side and is never shipped to the browser.
+// NOTE: plain `npm run dev` does not run the /api function — use `vercel dev`
+// or a Vercel deployment to exercise this page end-to-end.
 const REFRESH_MS = 10 * 60 * 1000; // 10 minutes — keeps well clear of the 20 req/min cap
 const ASSETS = ["BTC", "ETH"];
 
 async function sosoFetch(path) {
-  const res = await fetch(`${API_BASE}${path}`, {
-    headers: { "x-soso-api-key": API_KEY },
-  });
+  const res = await fetch(`/api/soso${path}`);
   if (res.status === 429) throw new Error("RATE_LIMIT");
   if (res.status === 401 || res.status === 403) throw new Error("AUTH");
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -42,7 +42,7 @@ function friendlyError(err) {
   if (err?.message === "RATE_LIMIT")
     return "SoSoValue rate limit hit (free tier allows 20 requests/minute). Wait a minute, then refresh.";
   if (err?.message === "AUTH")
-    return "SoSoValue API key is missing or invalid. Set VITE_SOSOVALUE_API_KEY in .env and restart the dev server.";
+    return "SoSoValue API key is missing or invalid on the server. Set SOSOVALUE_API_KEY in the Vercel environment variables (or in .env for `vercel dev`).";
   return `Unable to load ETF data from SoSoValue: ${err?.message || "unknown error"}`;
 }
 
@@ -114,11 +114,6 @@ export default function Etf() {
   };
 
   const loadData = async (sym, { force = false } = {}) => {
-    if (!API_KEY) {
-      setError(friendlyError(new Error("AUTH")));
-      setLoading(false);
-      return;
-    }
     try {
       setLoading(true);
       setError(null);
