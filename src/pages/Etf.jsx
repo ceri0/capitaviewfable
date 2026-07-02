@@ -17,15 +17,27 @@ import ExportCsvButton from "@/components/ExportCsvButton";
 //   sponsor_fee, net_inflow, cum_inflow, net_assets, mkt_price, value_traded,
 //   volume (string) }. NOTE: the documented prem_dsc field was absent in live
 //   responses, so it is not relied upon here.
-// Requests go through our Vercel serverless proxy (api/soso/[...path].js) so
-// the SoSoValue API key stays server-side and is never shipped to the browser.
+// Requests go through our Vercel serverless proxy (api/soso.js) so the
+// SoSoValue API key stays server-side and is never shipped to the browser.
+// The sub-path + query string we want SoSoValue to see is passed through as
+// a single `target` query param on our own proxy (e.g.
+// /api/soso?target=etfs%2Fsummary-history%3Fsymbol%3DBTC...) rather than as
+// literal URL path segments — Vercel's catch-all dynamic function routing
+// (api/soso/[...path].js) turned out to only reliably match a single path
+// segment and 404'd on anything nested deeper (verified live via the
+// Vercel dashboard's Resources/Logs — the function built fine but multi-
+// segment requests never reached it), so a flat function + query param is
+// the more robust choice here.
 // NOTE: plain `npm run dev` does not run the /api function — use `vercel dev`
 // or a Vercel deployment to exercise this page end-to-end.
 const REFRESH_MS = 10 * 60 * 1000; // 10 minutes — keeps well clear of the 20 req/min cap
 const ASSETS = ["BTC", "ETH"];
 
 async function sosoFetch(path) {
-  const res = await fetch(`/api/soso${path}`);
+  // path looks like "/etfs/summary-history?symbol=BTC&..." — strip the
+  // leading slash and forward the rest untouched as the `target` param.
+  const target = path.replace(/^\//, "");
+  const res = await fetch(`/api/soso?target=${encodeURIComponent(target)}`);
   if (res.status === 429) throw new Error("RATE_LIMIT");
   if (res.status === 401 || res.status === 403) throw new Error("AUTH");
   if (!res.ok) throw new Error(`HTTP ${res.status}`);

@@ -1,6 +1,18 @@
 // Vercel serverless function that proxies SoSoValue Open API requests so the
 // API key stays server-side and never ships in the Vite client bundle.
 //
+// Deliberately a FLAT function (no dynamic [...path] route): Vercel's
+// catch-all dynamic function routing under a subfolder (api/soso/[...path].js)
+// was verified live to only match a single path segment reliably and to
+// 404 at the platform routing layer for anything nested deeper (e.g.
+// /api/soso/etfs/summary-history never reached the function at all, even
+// though the function itself built and deployed correctly — confirmed via
+// the Vercel dashboard's Resources and Runtime Logs). A flat file always
+// matches its own bare path with no ambiguity, so the client instead sends
+// the desired SoSoValue sub-path + query string as a single `target` query
+// parameter, e.g.:
+//   /api/soso?target=etfs%2Fsummary-history%3Fsymbol%3DBTC%26country_code%3DUS
+//
 // LOCAL DEV NOTE: a plain `npm run dev` (Vite dev server) does NOT run this
 // function — Vercel /api routes only work via `vercel dev` (which runs the
 // Vite frontend AND emulates serverless functions together) or on an actual
@@ -26,29 +38,21 @@ export default async function handler(req, res) {
     return;
   }
 
-  // Vercel provides catch-all segments as an array (or a plain string when
-  // there is only one segment).
-  const { path, ...rest } = req.query;
-  const segments = Array.isArray(path) ? path : [path].filter(Boolean);
-  const upstreamPath = segments.join("/");
+  const target = typeof req.query.target === "string" ? req.query.target : "";
+  // Strip any accidental leading slash, then split path from query string.
+  const cleaned = target.replace(/^\/+/, "");
+  const [upstreamPath] = cleaned.split("?");
 
-  // Security allowlist: this proxy only serves the SoSoValue ETF endpoints
-  // this app uses (etfs, etfs/summary-history, etfs/{ticker}/market-snapshot).
-  // Anything else is rejected so the public endpoint can't be used as an open
-  // relay to arbitrary SoSoValue APIs on this project's quota.
-  if (segments[0] !== "etfs") {
+  // Security allowlist: only forward requests whose path starts with
+  // "etfs" (the only SoSoValue module this app uses), so this proxy can't
+  // be used as an open relay to arbitrary SoSoValue endpoints on this
+  // project's rate limit/quota.
+  if (!upstreamPath || !upstreamPath.startsWith("etfs")) {
     res.status(400).json({ error: "Unsupported path" });
     return;
   }
 
-  // Forward any other query params the client sent (symbol, country_code, limit, ...).
-  const query = new URLSearchParams();
-  for (const [key, value] of Object.entries(rest)) {
-    if (Array.isArray(value)) value.forEach((v) => query.append(key, v));
-    else if (value !== undefined) query.append(key, value);
-  }
-  const qs = query.toString();
-  const url = `${UPSTREAM_BASE}/${upstreamPath}${qs ? `?${qs}` : ""}`;
+  const url = `${UPSTREAM_BASE}/${cleaned}`;
 
   try {
     const upstream = await fetch(url, {
