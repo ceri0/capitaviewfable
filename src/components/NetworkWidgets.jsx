@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from "react";
+import { fetchCoinGeckoPrices } from "@/utils/api";
 
 export default function NetworkWidgets() {
   const [btcStats, setBtcStats] = useState(null);
+  const [btcPriceUsd, setBtcPriceUsd] = useState(null);
   const [mempoolFees, setMempoolFees] = useState(null);
   const [ethGas, setEthGas] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -9,10 +11,13 @@ export default function NetworkWidgets() {
   useEffect(() => {
     async function fetchData() {
       try {
-        const [btcStatsRes, mempoolRes, ethGasRes] = await Promise.all([
+        const [btcStatsRes, btcPriceRes, mempoolRes, ethGasRes] = await Promise.all([
           fetch("https://api.blockchain.info/stats")
             .then(r => r.ok ? r.json() : null)
             .catch(() => null),
+          // Canonical price source (CoinGecko /coins/markets) — do not use
+          // blockchain.info's market_price_usd for display.
+          fetchCoinGeckoPrices(["bitcoin"]).catch(() => null),
           fetch("https://mempool.space/api/v1/fees/recommended")
             .then(r => r.ok ? r.json() : null)
             .catch(() => null),
@@ -22,6 +27,7 @@ export default function NetworkWidgets() {
         ]);
 
         setBtcStats(btcStatsRes);
+        setBtcPriceUsd(btcPriceRes?.bitcoin?.price ?? null);
         setMempoolFees(mempoolRes);
         // ethgas.watch returns {instant: {gwei: 10}, fast: {gwei: 8}, ...}
         const parsedEthGas = ethGasRes ? {
@@ -51,7 +57,7 @@ export default function NetworkWidgets() {
     );
   }
 
-  const btcPrice = btcStats?.market_price_usd || 0;
+  const btcPrice = btcPriceUsd || 0;
   const hashrateGh = btcStats?.hash_rate || 0; // blockchain.info returns GH/s
   const hashrate = hashrateGh / 1000; // Convert GH/s to TH/s
   const totalTransactions = btcStats?.n_tx || 0; // Use n_tx instead of n_tx_total

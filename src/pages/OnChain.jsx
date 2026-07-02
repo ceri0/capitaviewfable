@@ -1,8 +1,10 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { RefreshCw } from "lucide-react";
+import { fetchCoinGeckoPrices } from "@/utils/api";
 
 export default function OnChain() {
   const [btcStats, setBtcStats] = useState(null);
+  const [btcPriceUsd, setBtcPriceUsd] = useState(null);
   const [mempoolFees, setMempoolFees] = useState(null);
   const [recentBlocks, setRecentBlocks] = useState([]);
   const [ethGas, setEthGas] = useState(null);
@@ -15,10 +17,13 @@ export default function OnChain() {
       setLoading(true);
       setError(null);
 
-      const [btcStatsRes, mempoolRes, blocksRes, ethGasRes] = await Promise.all([
+      const [btcStatsRes, btcPriceRes, mempoolRes, blocksRes, ethGasRes] = await Promise.all([
         fetch("https://api.blockchain.info/stats")
           .then(r => r.ok ? r.json() : null)
           .catch(() => null),
+        // Canonical price source (CoinGecko /coins/markets) — do not use
+        // blockchain.info's market_price_usd for display.
+        fetchCoinGeckoPrices(["bitcoin"]).catch(() => null),
         fetch("https://mempool.space/api/v1/fees/recommended")
           .then(r => r.ok ? r.json() : null)
           .catch(() => null),
@@ -31,6 +36,7 @@ export default function OnChain() {
       ]);
 
       setBtcStats(btcStatsRes);
+      setBtcPriceUsd(btcPriceRes?.bitcoin?.price ?? null);
       setMempoolFees(mempoolRes);
       setRecentBlocks(blocksRes || []);
       // ethgas.watch returns {instant: {gwei: 10}, fast: {gwei: 8}, ...}
@@ -103,10 +109,13 @@ export default function OnChain() {
     );
   }
 
-  const btcPrice = btcStats?.market_price_usd || 0;
+  const btcPrice = btcPriceUsd || 0;
   const hashrateGh = btcStats?.hash_rate || 0; // blockchain.info returns GH/s
-  const totalTransactions = btcStats?.n_tx_total || 0;
-  const avgBlockSize = btcStats?.avg_block_size || 0;
+  const totalTransactions = btcStats?.n_tx || 0; // blockchain.info /stats field is n_tx, not n_tx_total
+  // blockchain.info /stats has no avg_block_size field; derive it (in bytes) from blocks_size / n_blocks_mined
+  const avgBlockSize = btcStats?.blocks_size && btcStats?.n_blocks_mined
+    ? btcStats.blocks_size / btcStats.n_blocks_mined
+    : 0;
 
   return (
     <div className="space-y-6">
@@ -140,9 +149,9 @@ export default function OnChain() {
           <div className="bg-[#22222f] border border-[#2d2d3d] rounded-xl p-5 shadow-lg">
             <div className="text-[11px] text-[#6b7280] uppercase tracking-wide mb-2">Hash Rate</div>
             <div className="text-2xl font-bold text-white">
-              {hashrateGh >= 1e11 ? `${(hashrateGh / 1e11).toFixed(2)} EH/s` :
-               hashrateGh >= 1e9 ? `${(hashrateGh / 1e9).toFixed(2)} PH/s` :
-               `${(hashrateGh / 1e6).toFixed(2)} TH/s`}
+              {hashrateGh >= 1e9 ? `${(hashrateGh / 1e9).toFixed(2)} EH/s` :
+               hashrateGh >= 1e6 ? `${(hashrateGh / 1e6).toFixed(2)} PH/s` :
+               `${(hashrateGh / 1e3).toFixed(2)} TH/s`}
             </div>
           </div>
           <div className="bg-[#22222f] border border-[#2d2d3d] rounded-xl p-5 shadow-lg">
@@ -224,7 +233,7 @@ export default function OnChain() {
                   <td className="py-4 px-5 text-[#6b7280]">{new Date(block.timestamp * 1000).toLocaleString()}</td>
                   <td className="py-4 px-5 text-right text-white">{block.tx_count}</td>
                   <td className="py-4 px-5 text-right text-[#6b7280]">{(block.size / 1e6).toFixed(2)} MB</td>
-                  <td className="py-4 px-5 text-right text-white">{((block.feeTotal || block.totalFees || 0) / 1e8).toFixed(4)} BTC</td>
+                  <td className="py-4 px-5 text-right text-white">{((block.extras?.totalFees || 0) / 1e8).toFixed(4)} BTC</td>
                 </tr>
               ))}
             </tbody>

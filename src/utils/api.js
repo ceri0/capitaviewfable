@@ -8,6 +8,25 @@ export async function fetchJSON(url) {
   return response.json();
 }
 
+// Canonical price source for the whole app: CoinGecko's /coins/markets endpoint
+// (volume-weighted aggregate across exchanges — same source as Markets/Live Prices).
+// Takes an array of CoinGecko coin ids and returns a map of
+// id -> { price, change24h }. Throws on HTTP/network errors (callers should
+// .catch and fall back gracefully, matching existing fetch conventions).
+export async function fetchCoinGeckoPrices(ids) {
+  if (!ids || ids.length === 0) return {};
+  const data = await fetchJSON(
+    `https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&ids=${ids.join(",")}`
+  );
+  return (Array.isArray(data) ? data : []).reduce((map, coin) => {
+    map[coin.id] = {
+      price: coin.current_price,
+      change24h: coin.price_change_percentage_24h,
+    };
+    return map;
+  }, {});
+}
+
 export function formatNumber(num) {
   if (num === null || num === undefined) return "N/A";
   if (num >= 1e12) return `$${(num / 1e12).toFixed(2)}T`;

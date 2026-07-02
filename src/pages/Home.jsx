@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
-import { fetchJSON, formatTVL, formatPercent, formatNumberPlain } from "@/utils/api";
+import { fetchJSON, fetchCoinGeckoPrices, formatTVL, formatPercent, formatNumberPlain } from "@/utils/api";
 import { useProtocols } from "@/lib/ProtocolsContext";
 import ProtocolLogo from "@/components/ProtocolLogo";
 import ExportCsvButton from "@/components/ExportCsvButton";
@@ -56,7 +56,7 @@ export default function Home() {
         
         if (trendingRes?.ok) {
           const trendingData = await trendingRes.json();
-          setTrendingCoins(trendingData.coins?.map(c => ({
+          let coins = trendingData.coins?.map(c => ({
             coin_id: c.item?.id || c.coin_id,
             name: c.item?.name || c.name,
             symbol: c.item?.symbol || c.symbol,
@@ -65,7 +65,25 @@ export default function Home() {
               price: c.item?.data?.price,
               price_change_percentage_24h: { usd: c.item?.data?.price_change_percentage_24h?.usd || 0 }
             }
-          })) || []);
+          })) || [];
+
+          // /search/trending's price field is a stale snapshot — overwrite it with
+          // the canonical CoinGecko /coins/markets price so trending coins match
+          // what Markets/Live Prices show for the same coin at the same moment.
+          const coinIds = coins.map(c => c.coin_id).filter(Boolean);
+          const prices = await fetchCoinGeckoPrices(coinIds).catch(() => null);
+          if (prices) {
+            coins = coins.map(c => prices[c.coin_id] ? {
+              ...c,
+              data: {
+                ...c.data,
+                price: prices[c.coin_id].price,
+                price_change_percentage_24h: { usd: prices[c.coin_id].change24h ?? 0 }
+              }
+            } : c);
+          }
+
+          setTrendingCoins(coins);
         }
 
         const [chains, pools, stablecoins, dexs, fees, historical] = await Promise.all([

@@ -40,7 +40,7 @@ export default function Options() {
   }, [protocols, search]);
 
   const sortedProtocols = useMemo(() => {
-    return [...filteredProtocols].sort((a, b) => (b.dailyVolume ?? 0) - (a.dailyVolume ?? 0));
+    return [...filteredProtocols].sort((a, b) => (b.total24h ?? 0) - (a.total24h ?? 0));
   }, [filteredProtocols]);
 
   const totalPages = Math.ceil(sortedProtocols.length / rowsPerPage);
@@ -129,10 +129,10 @@ export default function Options() {
                     <td className="py-4 px-4 text-white font-medium">{protocol.name || "N/A"}</td>
                     <td className="py-4 px-4 text-[#6b7280]">{protocol.chains?.[0] || protocol.chain || "N/A"}</td>
                     <td className="py-4 px-4 text-right text-white font-semibold">
-                      ${((protocol.dailyVolume ?? protocol.total24h ?? 0) / 1e6).toFixed(2)}M
+                      ${((protocol.total24h ?? 0) / 1e6).toFixed(2)}M
                     </td>
                     <td className="py-4 px-4 text-right text-white">
-                      ${((protocol.weeklyVolume ?? protocol.total7d ?? 0) / 1e6).toFixed(2)}M
+                      ${((protocol.total7d ?? 0) / 1e6).toFixed(2)}M
                     </td>
                   </tr>
                 );
