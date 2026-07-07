@@ -31,7 +31,7 @@ export async function fetchCoinGeckoPrices(ids) {
 // canonical source as fetchCoinGeckoPrices, but returns the raw coin objects
 // with ALL fields (market_cap, total_volume, sparkline_in_7d, market_cap_rank,
 // etc.) for a page of top coins by market cap, rather than a curated id list.
-// Used by LivePrices and Markets so the endpoint/URL lives in one place.
+// Used by Markets.jsx so the endpoint/URL lives in one place.
 // Throws on HTTP/network errors (callers should catch and handle).
 export async function fetchCoinGeckoMarkets({
   perPage = 100,

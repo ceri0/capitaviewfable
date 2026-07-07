@@ -1,6 +1,6 @@
 import React from "react";
 import { Outlet, Link, useLocation } from "react-router-dom";
-import { LayoutDashboard, Coins, Globe, Layers, DollarSign, TrendingUp, PieChart, Sun, Moon, ArrowLeftRight, AlertTriangle, PieChart as PieChartIcon, TrendingUp as TrendingUpIcon, Banknote, Shield, Wallet, Building2, BarChart3, Activity, Server } from "lucide-react";
+import { LayoutDashboard, Coins, Globe, Layers, DollarSign, TrendingUp, PieChart, Sun, Moon, ArrowLeftRight, AlertTriangle, PieChart as PieChartIcon, TrendingUp as TrendingUpIcon, Banknote, Shield, Wallet, Building2, BarChart3, Server } from "lucide-react";
 import { useTheme } from "@/lib/ThemeContext";
 
 const navItems = [
@@ -20,7 +20,6 @@ const navItems = [
   { path: "/treasuries", label: "Treasuries", icon: Wallet },
   { path: "/etf", label: "ETFs", icon: Building2 },
   { path: "/markets", label: "Markets", icon: BarChart3 },
-  { path: "/live-prices", label: "Live Prices", icon: Activity },
   { path: "/on-chain", label: "On-Chain", icon: Server },
 ];
 

@@ -1,7 +1,7 @@
 import { Toaster } from "@/components/ui/toaster"
 import { QueryClientProvider } from '@tanstack/react-query'
 import { queryClientInstance } from '@/lib/query-client'
-import { BrowserRouter as Router, Route, Routes } from 'react-router-dom';
+import { BrowserRouter as Router, Route, Routes, Navigate } from 'react-router-dom';
 import PageNotFound from './lib/PageNotFound';
 import { AuthProvider, useAuth } from '@/lib/AuthContext';
 import { ProtocolsProvider } from '@/lib/ProtocolsContext';
@@ -25,7 +25,6 @@ import Hacks from './pages/Hacks';
 import Treasuries from './pages/Treasuries';
 import Etf from './pages/Etf';
 import Markets from './pages/Markets';
-import LivePrices from './pages/LivePrices';
 import OnChain from './pages/OnChain';
 
 const AuthenticatedApp = () => {
@@ -71,7 +70,9 @@ const AuthenticatedApp = () => {
         <Route path="/treasuries" element={<Treasuries />} />
         <Route path="/etf" element={<Etf />} />
         <Route path="/markets" element={<Markets />} />
-        <Route path="/live-prices" element={<LivePrices />} />
+        {/* Live Prices was merged into Markets (same CoinGecko source, now with
+            auto-refresh) — redirect any old bookmarks/links instead of 404ing. */}
+        <Route path="/live-prices" element={<Navigate to="/markets" replace />} />
         <Route path="/on-chain" element={<OnChain />} />
       </Route>
       <Route path="*" element={<PageNotFound />} />
