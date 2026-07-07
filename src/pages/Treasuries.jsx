@@ -172,7 +172,13 @@ export default function Treasuries() {
         });
       });
 
-      setLastUpdated(new Date());
+      // Only advance the "Updated" timestamp if at least one treasury
+      // actually got fresh data this cycle — if every single one failed
+      // (all stale/error), the data on screen hasn't changed, and bumping
+      // the timestamp would falsely suggest it had.
+      if (results.some((r) => r.status === "fulfilled")) {
+        setLastUpdated(new Date());
+      }
     } catch (err) {
       console.error("Treasuries error:", err);
       setError(err.message || "Unable to load treasury data");

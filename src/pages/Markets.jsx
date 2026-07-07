@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo, useRef } from "react";
 import { Search, ChevronLeft, ChevronRight, TrendingUp, TrendingDown, RefreshCw } from "lucide-react";
-import { LineChart, Line, ResponsiveContainer } from "recharts";
+import { LineChart, Line, YAxis, ResponsiveContainer } from "recharts";
 import { fetchCoinGeckoMarkets } from "@/utils/api";
 import ExportCsvButton from "@/components/ExportCsvButton";
 
@@ -30,6 +30,12 @@ export default function Markets() {
   const rowsPerPage = 50;
 
   const countdownIntervalRef = useRef(null);
+  // Last successful result per page. If one page fails while the other
+  // succeeds on a refresh, we fall back to that page's last-known-good data
+  // instead of silently truncating the 200-coin list to ~100 — same
+  // "never show worse data than the user already had" approach as the
+  // stale-row handling in Treasuries.jsx.
+  const pageCacheRef = useRef({});
 
   const fetchCoins = async () => {
     try {
@@ -40,14 +46,26 @@ export default function Markets() {
         countdownIntervalRef.current = null;
       }
 
-      // Fetch 2 pages (200 coins) in parallel; a failed page is skipped so
-      // the other can still render rather than failing the whole load.
+      // Fetch 2 pages (200 coins) in parallel; a failed page falls back to
+      // its last successful result (below) so the other page can still
+      // refresh rather than the whole load failing or the list truncating.
       const [page1, page2] = await Promise.all([
-        fetchCoinGeckoMarkets({ perPage: 100, page: 1, sparkline: true }).catch(() => []),
-        fetchCoinGeckoMarkets({ perPage: 100, page: 2, sparkline: true }).catch(() => []),
+        fetchCoinGeckoMarkets({ perPage: 100, page: 1, sparkline: true }).catch(() => null),
+        fetchCoinGeckoMarkets({ perPage: 100, page: 2, sparkline: true }).catch(() => null),
       ]);
 
-      const allCoins = [...page1, ...page2];
+      // Use the fresh page if it succeeded (and cache it); otherwise fall
+      // back to that page's last cached successful result so a partial
+      // failure never silently shrinks the list the user already had.
+      const resolvePage = (fresh, pageNum) => {
+        if (Array.isArray(fresh) && fresh.length > 0) {
+          pageCacheRef.current[pageNum] = fresh;
+          return fresh;
+        }
+        return pageCacheRef.current[pageNum] ?? [];
+      };
+
+      const allCoins = [...resolvePage(page1, 1), ...resolvePage(page2, 2)];
       if (allCoins.length === 0) throw new Error("No data received");
 
       setCoins(allCoins);
@@ -98,9 +116,18 @@ export default function Markets() {
 
   const sortedCoins = useMemo(() => {
     return [...filteredCoins].sort((a, b) => {
-      const aVal = a[sortConfig.key] ?? 0;
-      const bVal = b[sortConfig.key] ?? 0;
-      return sortConfig.direction === "desc" ? bVal - aVal : aVal - bVal;
+      const aVal = a[sortConfig.key];
+      const bVal = b[sortConfig.key];
+      // String columns (e.g. "name") can't be sorted with subtraction — that
+      // yields NaN and leaves the order unchanged. Use localeCompare for
+      // strings and numeric subtraction for everything else.
+      let cmp;
+      if (typeof aVal === "string" || typeof bVal === "string") {
+        cmp = String(aVal ?? "").localeCompare(String(bVal ?? ""));
+      } else {
+        cmp = (aVal ?? 0) - (bVal ?? 0);
+      }
+      return sortConfig.direction === "desc" ? -cmp : cmp;
     });
   }, [filteredCoins, sortConfig]);
 
@@ -320,6 +347,10 @@ export default function Markets() {
                         <div className="h-10 w-24">
                           <ResponsiveContainer width="100%" height="100%">
                             <LineChart data={chartData}>
+                              {/* Without an explicit domain the y-axis starts at 0,
+                                  squashing the coin's real 7d range into a near-flat
+                                  line — span dataMin..dataMax so the trend is visible. */}
+                              <YAxis domain={["dataMin", "dataMax"]} hide />
                               <Line
                                 type="monotone"
                                 dataKey="price"

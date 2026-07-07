@@ -349,7 +349,7 @@ export default function Home() {
           <table className="w-full">
             <thead>
               <tr className="text-left text-[11px] text-[#6b7280] uppercase tracking-wide border-b border-[#2d2d3d]">
-                <th className="pb-3 pl-3 font-semibold">#</th>
+                <th className="pb-3 pl-6 font-semibold">#</th>
                 <th className="pb-3 font-semibold">Name</th>
                 <th className="pb-3 font-semibold">Category</th>
                 <th className="pb-3 font-semibold text-right">TVL</th>
@@ -360,7 +360,7 @@ export default function Home() {
             <tbody>
               {topProtocols.map((protocol, index) => (
                 <tr key={protocol.name} className="border-b border-[#2d2d3d] last:border-b-0 hover:bg-[#2d2d3d]/30 transition-colors">
-                  <td className="py-4 pl-3 text-[#6b7280]">{index + 1}</td>
+                  <td className="py-4 pl-6 text-[#6b7280]">{index + 1}</td>
                   <td className="py-4">
                     <div className="flex items-center gap-2">
                       <ProtocolLogo name={protocol.name} slug={protocol.slug} size={24} />
