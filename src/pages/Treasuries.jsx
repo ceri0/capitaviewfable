@@ -150,17 +150,28 @@ export default function Treasuries() {
       const results = await Promise.allSettled(
         TREASURIES.map((t) => loadTreasury(t, ethPriceUsd))
       );
-      const next = TREASURIES.map((t, i) => {
-        const r = results[i];
-        return r.status === "fulfilled"
-          ? { ...t, status: "ok", ...r.value }
-          : { ...t, status: "error", errorMessage: r.reason?.message || "Failed to load" };
+
+      // Merge into previous rows instead of replacing wholesale: a treasury
+      // that fails on a background refresh (e.g. a shared CoinGecko rate
+      // limit hitting all 6 at once) keeps showing its last-known-good data
+      // marked "stale" rather than getting wiped to a blank error card.
+      // Only treasuries that have NEVER loaded successfully get "error".
+      setRows((prevRows) => {
+        const prevByAddress = Object.fromEntries(prevRows.map((r) => [r.address, r]));
+        return TREASURIES.map((t, i) => {
+          const r = results[i];
+          if (r.status === "fulfilled") {
+            return { ...t, status: "ok", ...r.value };
+          }
+          const errorMessage = r.reason?.message || "Failed to load";
+          const prev = prevByAddress[t.address];
+          if (prev && (prev.status === "ok" || prev.status === "stale")) {
+            return { ...prev, status: "stale", errorMessage };
+          }
+          return { ...t, status: "error", errorMessage };
+        });
       });
 
-      setRows(next);
-      if (next.every((r) => r.status === "error")) {
-        setError(next[0].errorMessage || "Unable to load treasury data");
-      }
       setLastUpdated(new Date());
     } catch (err) {
       console.error("Treasuries error:", err);
@@ -177,7 +188,11 @@ export default function Treasuries() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const loaded = rows.filter((r) => r.status === "ok");
+  // "ok" and "stale" both have real, displayable data — "stale" just means
+  // the most recent refresh attempt failed and we're showing the last
+  // successful load instead of wiping it out.
+  const loaded = rows.filter((r) => r.status === "ok" || r.status === "stale");
+  const staleRows = rows.filter((r) => r.status === "stale");
   const failed = rows.filter((r) => r.status === "error");
   const grandTotal = loaded.reduce((sum, r) => sum + r.totalUsd, 0);
 
@@ -205,11 +220,18 @@ export default function Treasuries() {
     );
   }
 
-  if (error && loaded.length === 0) {
+  // Only show the full blank-page error when we have never successfully
+  // loaded any treasury (e.g. the very first load failed outright). If we
+  // have last-known-good data for at least one treasury, keep showing the
+  // page — loadData() already downgrades failed refreshes to "stale" rows
+  // instead of wiping them, so a transient failure here means every single
+  // treasury has never once loaded, not just that the latest refresh failed.
+  if (error || (rows.length > 0 && loaded.length === 0)) {
+    const message = error || failed[0]?.errorMessage || "Unable to load treasury data";
     return (
       <div className="bg-[#22222f] border border-[#2d2d3d] rounded-xl p-8 text-center">
         <div className="text-white font-semibold mb-2">Unable to Load Treasury Data</div>
-        <div className="text-[#6b7280] text-sm mb-4">{error}</div>
+        <div className="text-[#6b7280] text-sm mb-4">{message}</div>
         <button
           onClick={loadData}
           className="inline-flex items-center gap-2 px-4 py-2 bg-[#a97bd1] text-white text-sm rounded-lg hover:bg-[#9465c4] transition-colors"
@@ -281,12 +303,21 @@ export default function Treasuries() {
         </div>
       </div>
 
-      {/* Partial-failure notice */}
+      {/* Partial-failure notice — treasuries that have NEVER loaded successfully */}
       {failed.length > 0 && loaded.length > 0 && (
         <div className="bg-[#22222f] border border-[#a97bd1]/40 rounded-xl px-4 py-3 text-sm text-[#c4b5fd]">
           {failed.map((f) => f.name).join(", ")} could not be loaded this cycle
           {failed[0]?.errorMessage ? ` (${failed[0].errorMessage})` : ""}. Other treasuries are
           unaffected — try refreshing in a minute.
+        </div>
+      )}
+
+      {/* Stale notice — treasuries with real data that just failed to refresh */}
+      {staleRows.length > 0 && (
+        <div className="bg-[#22222f] border border-[#a97bd1]/40 rounded-xl px-4 py-3 text-sm text-[#c4b5fd]">
+          {staleRows.map((f) => f.name).join(", ")} could not refresh this cycle
+          {staleRows[0]?.errorMessage ? ` (${staleRows[0].errorMessage})` : ""} — showing the last
+          successfully loaded data instead.
         </div>
       )}
 
@@ -296,7 +327,17 @@ export default function Treasuries() {
           <div key={t.address} className="bg-[#22222f] border border-[#2d2d3d] rounded-xl p-6 shadow-lg flex flex-col">
             <div className="flex items-start justify-between mb-1">
               <div>
-                <div className="text-white font-semibold">{t.name}</div>
+                <div className="flex items-center gap-2">
+                  <span className="text-white font-semibold">{t.name}</span>
+                  {t.status === "stale" && (
+                    <span
+                      className="text-[9px] uppercase tracking-wide text-[#c4b5fd] border border-[#a97bd1]/40 rounded px-1.5 py-0.5"
+                      title={`Refresh failed: ${t.errorMessage}`}
+                    >
+                      Stale
+                    </span>
+                  )}
+                </div>
                 <div className="text-xs text-[#6b7280]">{t.subtitle}</div>
               </div>
               <a
